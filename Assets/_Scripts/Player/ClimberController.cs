@@ -17,6 +17,7 @@ public class ClimberController : MonoBehaviour
     [SerializeField] private float maxHeight = 10f;
     [SerializeField] private float limitEpsilon = 0.01f;
 
+    private Coroutine bumpMovementRoutine;
     private bool isMoving;
 
     public bool IsMoving => isMoving;
@@ -231,5 +232,104 @@ public class ClimberController : MonoBehaviour
         transform.position = position;
 
         CancelCurrentClimbStep();
+    }
+
+    public void ApplyBumpImpact(
+    float heightDelta,
+    float duration)
+    {
+        if (bumpMovementRoutine != null)
+            StopCoroutine(bumpMovementRoutine);
+
+        bumpMovementRoutine =
+            StartCoroutine(
+                BumpMovementRoutine(
+                    heightDelta,
+                    duration
+                )
+            );
+    }
+
+    private IEnumerator BumpMovementRoutine(
+        float heightDelta,
+        float duration)
+    {
+        // Cancel the current normal climb step.
+        CancelCurrentClimbStep();
+
+        float startY =
+            transform.position.y;
+
+        float targetY =
+            startY + heightDelta;
+
+        if (useVerticalLimits)
+        {
+            targetY =
+                Mathf.Clamp(
+                    targetY,
+                    minHeight,
+                    maxHeight
+                );
+        }
+
+        if (Mathf.Approximately(
+            startY,
+            targetY))
+        {
+            bumpMovementRoutine = null;
+            yield break;
+        }
+
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    elapsed / duration
+                );
+
+            // Smooth impact movement.
+            float smoothT =
+                Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    t
+                );
+
+            Vector3 position =
+                transform.position;
+
+            position.y =
+                Mathf.Lerp(
+                    startY,
+                    targetY,
+                    smoothT
+                );
+
+            transform.position =
+                position;
+
+            yield return null;
+        }
+
+        Vector3 finalPosition =
+            transform.position;
+
+        finalPosition.y =
+            targetY;
+
+        transform.position =
+            finalPosition;
+
+        bumpMovementRoutine = null;
+    }
+
+    public void SetGameplayEnabled(bool enabled)
+    {
+        input.SetUpHeld(enabled);
     }
 }
